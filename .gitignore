@@ -1,0 +1,10 @@
+node_modules/
+.pnpm-store/
+pr58.json
+pr58-files.json
+v3_optimized.upstream.js
+*.log
+.env
+.env.*
+.DS_Store
+Thumbs.db
