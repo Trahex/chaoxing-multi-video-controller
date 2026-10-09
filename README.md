@@ -1,52 +1,70 @@
-# 学习通多视频与倍速助手
+# 学习通多视频同时播放控制器
 
-Tampermonkey 用户脚本，提供同一小节多视频并行播放、顺序播放、倍速选择和悬浮控制面板。主要适配上海大学学习通课程播放页。
+一个 Tampermonkey / 油猴脚本，用于识别同一章节页面中的多个视频，通过屏蔽播放器 `videojs_id` Cookie 的读取解除互斥，提供一键静音并行播放、全部暂停和悬浮控制面板。
 
-## 安装与使用
+## 安装
 
-1. 安装 Tampermonkey 扩展。
-2. [点击安装脚本](https://raw.githubusercontent.com/Trahex/chaoxing-multi-video-controller/main/%E5%AD%A6%E4%B9%A0%E9%80%9A%E5%A4%9A%E8%A7%86%E9%A2%91%E5%80%8D%E9%80%9F.user.js)，或下载根目录的 `学习通多视频倍速.user.js` 后通过 Tampermonkey 导入。
-3. 停用其他控制同一播放器的脚本，刷新课程播放页。
-4. 在右上方“学习通 · 多视频助手”面板选择模式，点击“开始”。
-5. 切换模式前点击“停止”；无法播放时点击“诊断”，查看控制台输出。
+1. 在 Chrome / Chromium 浏览器安装 Tampermonkey。
+2. [点击安装用户脚本](https://raw.githubusercontent.com/Trahex/chaoxing-multi-video-controller/main/src/chaoxing-multi-video.user.js)。也可以新建油猴脚本，粘贴 `src/chaoxing-multi-video.user.js` 的全部内容并保存。
+3. 打开学习通课程章节页面，等待右下角出现“🎬 多视频控制器”。
 
-完整操作说明见 [使用说明](使用说明.md)。
+## 使用
 
-## 当前功能
+- **一键开始**：重新扫描播放器，安装 Cookie Hook，静音并行启动全部可访问视频。
+- **全部暂停**：调用播放器原有暂停方法。
+- **重新扫描播放器**：手动识别动态加载的视频；脚本也每两秒自动扫描。
+- **状态显示**：显示实际正在播放的视频数、识别总数和已解除互斥的视频数。
+- **拖动与收起**：拖动标题栏移动面板，点击“− / +”收起或展开。
 
-- 并行模式：启动同小节可访问的未完成视频，默认原速、静音。
-- 顺序模式：按任务点顺序播放，提供 2×、3×、6×、8×选项，显示实际倍速。
-- 开始、停止、诊断，以及可拖动、可收起的悬浮面板。
-- 显示播放数量、进度推进数量及播放结束数量。
-- 可选切屏暂停恢复，保留手动暂停与互动题暂停处理。
-- 识别新旧课程目录、延迟加载播放器及平台已完成标记。
+视频默认静音。可以在原播放器中单独调整声音。自动扫描不自动播放新出现的视频；切换章节后按需再次点击“一键开始”。
 
-## 兼容性与限制
+## 原理
 
-脚本匹配上海大学 `mooc1.shu.edu.cn` 和 `*.chaoxing.com` 的课程播放页，具体范围见用户脚本头部。跨域 iframe 无法访问时会显示诊断。后台标签页可能被浏览器限流或冻结，平台也可能限制并行播放及倍速。
+根据项目总结，学习通 Video.js 的 `studyControl.singleton` 在播放时写入 `videojs_id`，并定时读取该 Cookie。当共享 ID 与当前播放器 ID 不一致时暂停当前播放器。
 
-本地模拟环境已通过 14 项回归场景，包括 12 个播放器并行启动；该结果不等于登录课程页面的实际验证。服务器记录的学习进度与浏览器播放状态可能不同。
+脚本在各个可访问的视频 iframe 中包装 `Ext.getCookie`，仅对 `videojs_id` 返回 `undefined`，其余 Cookie 保持原调用。不会改写 `HTMLMediaElement.prototype.pause`，正常暂停与结束行为保留。
 
-## 开发
+详细说明见 [技术原理](docs/principle.md)，排查方法见 [调试说明](docs/debugging.md)。
 
-要求 Node.js 18 或更新版本，以及 pnpm。
+## 兼容性
 
-```sh
-pnpm install --frozen-lockfile
-pnpm run build
-pnpm test
+匹配范围：
+
+```text
+https://mooc1.shu.edu.cn/*
+https://mooc2-ans.shu.edu.cn/*
+https://*.chaoxing.com/*
 ```
 
-`build-local.mjs` 从 `v3_optimized.pr58.js` 构建，注入 `local-panel.js` 和 `parallel-mode.js`，生成根目录的安装脚本。`verify-local.mjs` 使用 `pr58-regression.mjs` 中的模拟环境运行本地测试。
+递归扫描同源 iframe，优先使用已存在的 Video.js Player，未找到实例时使用原生 `<video>`。跨域 iframe 自动跳过。
 
-## 来源与设计文档
+## 验证情况
 
-当前代码基于 [xuexitongScript PR #58](https://github.com/chaolucky18/xuexitongScript/pull/58)，来源提交为 `06530033be6f142025fd7df6ae9bf70546850ba8`。本仓库是独立修改版本，不代表上游正式发布。
+用户提供的项目总结记录了 3 个视频持续推进和 11 个视频同时播放的历史测试。本仓库脚本根据该总结重新实现；这些历史结果不代表此版本已在登录课程页面实测。
 
-[项目方案](docs/project-summary.md) 保留用户提供的技术总结。[技术原理说明](docs/principle.md) 区分当前实现和该总结提出的 `Ext.getCookie('videojs_id')` Hook 方案；当前版本尚未集成这个 Hook，也不把总结中的 11 视频实测作为当前版本验证结果。
+## 已知限制
 
-## 使用范围与许可
+- 浏览器端同时播放不能保证服务器同时记录全部学习进度。服务端可能有心跳、并发、时长和任务点验证。
+- 无法访问跨域 iframe；播放器需与课程页面处于可访问的同源环境。
+- 方案依赖当前 `Ext.getCookie('videojs_id')` 机制。平台改用其他机制后需重新分析。
+- 静音有助于满足自动播放策略，但启动仍可能被浏览器或播放器拒绝。
+- 面板最小化是收起网页控制面板，不是将浏览器窗口最小化到系统任务栏。
 
-脚本调用真实播放器，不伪造学习进度、观看时长、心跳或服务器任务完成状态。请按课程及平台规则使用。
+## 项目结构
 
-上游仓库未提供明确许可证，本仓库保留来源署名，暂不额外授予整份派生代码的开源许可。详见 [LICENSE](LICENSE)。
+```text
+src/chaoxing-multi-video.user.js  可直接安装的脚本
+docs/principle.md                技术原理
+docs/debugging.md                调试与验证
+README.md
+LICENSE
+.gitignore
+```
+
+## 使用范围
+
+本项目只控制浏览器端真实播放器，不修改或伪造学习进度、观看时长、任务完成状态、心跳请求或服务器 API 返回结果。请遵守课程与平台的使用规则。
+
+## License
+
+[MIT](LICENSE)
